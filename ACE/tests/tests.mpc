@@ -2292,3 +2292,10 @@ project(Bug_2873_Regression_Test) : acetest {
     Bug_2873_Regression_Test.cpp
   }
 }
+
+project(Bug_2687_Regression_Test) : acetest {
+  exename = Bug_2687_Regression_Test
+  Source_Files {
+    Bug_2687_Regression_Test.cpp
+  }
+}
