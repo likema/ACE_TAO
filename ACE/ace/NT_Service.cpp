@@ -509,8 +509,9 @@ ACE_NT_Service::report_status (DWORD new_status,
     this->svc_status_.dwCheckPoint = 0;
   }
 
-  retval = SetServiceStatus (this->svc_handle_,
-                             &this->svc_status_) ? 0 : -1;
+  if (this->svc_handle_)
+    retval = SetServiceStatus (this->svc_handle_,
+                               &this->svc_status_) ? 0 : -1;
 
   if (save_controls != 0)
     this->svc_status_.dwControlsAccepted = save_controls;
