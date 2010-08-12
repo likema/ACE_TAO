@@ -716,7 +716,9 @@ ACE_Strategy_Acceptor<SVC_HANDLER, PEER_ACCEPTOR>::handle_close (ACE_HANDLE,
   // Guard against multiple closes.
   if (this->reactor () != 0)
     {
-      ACE_HANDLE handle = this->get_handle ();
+      this->reactor ()->remove_handler
+        (this->get_handle (),
+         ACE_Event_Handler::ACCEPT_MASK | ACE_Event_Handler::DONT_CALL);
 
       if (this->delete_creation_strategy_)
         delete this->creation_strategy_;
@@ -737,13 +739,6 @@ ACE_Strategy_Acceptor<SVC_HANDLER, PEER_ACCEPTOR>::handle_close (ACE_HANDLE,
         delete this->scheduling_strategy_;
       this->delete_scheduling_strategy_ = false;
       this->scheduling_strategy_ = 0;
-
-      // We must use the <handle> obtained *before* we deleted the
-      // accept_strategy_...
-
-      this->reactor ()->remove_handler
-        (handle,
-         ACE_Event_Handler::ACCEPT_MASK | ACE_Event_Handler::DONT_CALL);
 
       // Set the Reactor to 0 so that we don't try to close down
       // again.
