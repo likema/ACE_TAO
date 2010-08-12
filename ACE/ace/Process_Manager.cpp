@@ -277,25 +277,25 @@ ACE_Process_Manager::close (void)
 #if !defined (ACE_WIN32) && !defined (ACE_LACKS_UNIX_SIGNALS)
       this->reactor ()->remove_handler (SIGCHLD, (ACE_Sig_Action *) 0);
 #endif /*  !ACE_WIN32  */
+      ACE_MT (ACE_GUARD_RETURN (ACE_Recursive_Thread_Mutex, ace_mon, this->lock_, -1));
+
+      if (this->process_table_ != 0)
+        {
+          while (this->current_count_ > 0)
+            this->remove_proc (0);
+
+          delete [] this->process_table_;
+          this->process_table_ = 0;
+          this->max_process_table_size_ = 0;
+          this->current_count_ = 0;
+        }
+
+      if (this->default_exit_handler_ != 0)
+          this->default_exit_handler_->handle_close (ACE_INVALID_HANDLE,0);
+      this->default_exit_handler_ = 0;
+
       this->reactor (0);
     }
-
-  ACE_MT (ACE_GUARD_RETURN (ACE_Recursive_Thread_Mutex, ace_mon, this->lock_, -1));
-
-  if (this->process_table_ != 0)
-    {
-      while (this->current_count_ > 0)
-        this->remove_proc (0);
-
-      delete [] this->process_table_;
-      this->process_table_ = 0;
-      this->max_process_table_size_ = 0;
-      this->current_count_ = 0;
-    }
-
-  if (this->default_exit_handler_ != 0)
-      this->default_exit_handler_->handle_close (ACE_INVALID_HANDLE,0);
-  this->default_exit_handler_ = 0;
 
   return 0;
 }
