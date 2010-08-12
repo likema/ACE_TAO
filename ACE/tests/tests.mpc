@@ -2285,3 +2285,10 @@ project(Missing_Svc_Conf_Test) : acetest {
     Missing_Svc_Conf_Test.cpp
   }
 }
+
+project(Bug_2873_Regression_Test) : acetest {
+  exename = Bug_2873_Regression_Test
+  Source_Files {
+    Bug_2873_Regression_Test.cpp
+  }
+}
