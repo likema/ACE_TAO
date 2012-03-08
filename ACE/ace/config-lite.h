@@ -25,6 +25,8 @@
 # pragma once
 #endif /* ACE_LACKS_PRAGMA_ONCE */
 
+#ifdef __cplusplus
+
 // ============================================================================
 // UNICODE macros (to be added later)
 // ============================================================================
@@ -150,6 +152,7 @@ ACE_END_VERSIONED_NAMESPACE_DECL
   typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 #endif  /* _MSC_VER && _WIN64 */
 
+#endif /* __cplusplus */
 
 #include /**/ "ace/post.h"
 
