@@ -185,6 +185,7 @@ ace_wmain_i
 
 #     else /* ! (ACE_WIN32 && ACE_USES_WCHAR) */
 
+#ifdef __cplusplus
 ACE_BEGIN_VERSIONED_NAMESPACE_DECL
 
 class ACE_Export ACE_Main_Base
@@ -197,6 +198,7 @@ public:
 };
 
 ACE_END_VERSIONED_NAMESPACE_DECL
+#endif /* __cplusplus */
 
 /*
 ** LabVIEW RT cannot directly use an executable. Need to build the program
