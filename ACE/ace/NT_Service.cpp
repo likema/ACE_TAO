@@ -244,11 +244,12 @@ ACE_NT_Service::remove (void)
   if (this->svc_sc_handle () == 0)
     return -1;
 
-  if (DeleteService (this->svc_sc_handle()) == 0
-      && GetLastError () != ERROR_SERVICE_MARKED_FOR_DELETE)
-    return -1;
+  if (DeleteService (this->svc_sc_handle()) || 
+      GetLastError () == ERROR_SERVICE_MARKED_FOR_DELETE)
+    return 0;
 
-  return 0;
+  ACE_OS::set_errno_to_last_error ();
+  return -1;
 }
 
 // Sets the startup type for the service.  Returns -1 on error, 0 on
@@ -260,19 +261,20 @@ ACE_NT_Service::startup (DWORD startup)
   if (svc == 0)
     return -1;
 
-  BOOL ok =
-    ChangeServiceConfig (svc,
-                         (DWORD) SERVICE_NO_CHANGE,// No change to service type
-                         startup,                  // New startup type
-                         (DWORD) SERVICE_NO_CHANGE,// No change to error ctrl
-                         0,                        // No change to pathname
-                         0,                        // No change to load group
-                         0,                        // No change to tag
-                         0,                        // No change to dependencies
-                         0, 0,                     // No change to acct/passwd
-                         0);                       // No change to name
+  if (ChangeServiceConfig (svc,
+                           (DWORD) SERVICE_NO_CHANGE,// No change to service type
+                           startup,                  // New startup type
+                           (DWORD) SERVICE_NO_CHANGE,// No change to error ctrl
+                           0,                        // No change to pathname
+                           0,                        // No change to load group
+                           0,                        // No change to tag
+                           0,                        // No change to dependencies
+                           0, 0,                     // No change to acct/passwd
+                           0))                       // No change to name
+    return 0;
 
-  return ok ? 0 : -1;
+  ACE_OS::set_errno_to_last_error ();
+  return -1;
 }
 
 // Returns the current startup type.
@@ -297,9 +299,10 @@ ACE_NT_Service::startup (void)
   }
   cfgsize = sizeof cfgbuff;
   cfg = (LPQUERY_SERVICE_CONFIG) cfgbuff;
-  BOOL ok = QueryServiceConfig (svc, cfg, cfgsize, &needed_size);
-  if (ok)
+  if (QueryServiceConfig (svc, cfg, cfgsize, &needed_size))
     return cfg->dwStartType;
+
+  ACE_OS::set_errno_to_last_error ();
   // Zero is a valid return value for QueryServiceConfig, so if
   // QueryServiceConfig fails, return the DWORD equivalent of -1.
   return MAXDWORD;
@@ -332,7 +335,10 @@ ACE_NT_Service::start_svc (ACE_Time_Value *wait_time,
     return -1;
 
   if (!ACE_TEXT_StartService (svc, argc, argv))
-    return -1;
+    {
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
+    }
 
   this->wait_for_service_state (SERVICE_RUNNING, wait_time);
   if (svc_state != 0)
@@ -352,7 +358,10 @@ ACE_NT_Service::stop_svc (ACE_Time_Value *wait_time,
   if (!ControlService (svc,
                        SERVICE_CONTROL_STOP,
                        &this->svc_status_))
-    return -1;
+    {
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
+    }
 
   this->wait_for_service_state (SERVICE_STOPPED,
                                 wait_time);
@@ -373,7 +382,10 @@ ACE_NT_Service::pause_svc (ACE_Time_Value *wait_time,
   if (!ControlService (svc,
                        SERVICE_CONTROL_PAUSE,
                        &this->svc_status_))
-    return -1;
+    {
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
+    }
 
   this->wait_for_service_state (SERVICE_PAUSED,
                                 wait_time);
@@ -394,7 +406,10 @@ ACE_NT_Service::continue_svc (ACE_Time_Value *wait_time,
   if (!ControlService (svc,
                        SERVICE_CONTROL_CONTINUE,
                        &this->svc_status_))
-    return -1;
+    {
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
+    }
 
   this->wait_for_service_state (SERVICE_RUNNING,
                                 wait_time);
@@ -432,7 +447,10 @@ ACE_NT_Service::state (DWORD *pstate,
 
   if (QueryServiceStatus (svc,
                           &this->svc_status_) == 0)
-    return -1;
+    {
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
+    }
 
   if (wait_hint != 0)
     wait_hint->msec (static_cast<long> (this->svc_status_.dwWaitHint));
@@ -451,24 +469,30 @@ ACE_NT_Service::state (DWORD *pstate,
 int
 ACE_NT_Service::test_access (DWORD desired_access)
 {
-  int status = -1;     // Guilty until proven innocent
-
   SC_HANDLE sc_mgr = ACE_TEXT_OpenSCManager (this->host (),
                                              0,
                                              GENERIC_READ);
-  if (sc_mgr != 0)
+  if (!sc_mgr)
     {
-      SC_HANDLE handle = ACE_TEXT_OpenService (sc_mgr,
-                                               this->name (),
-                                               desired_access);
-      CloseServiceHandle (sc_mgr);
-      if (handle != 0)
-        {
-          status = 0;
-          CloseServiceHandle (handle);
-        }
+      ACE_OS::set_errno_to_last_error ();
+      return -1;
     }
 
+  int status = -1;     // Guilty until proven innocent
+  SC_HANDLE handle = ACE_TEXT_OpenService (sc_mgr,
+                                           this->name (),
+                                           desired_access);
+  if (handle)
+    {
+      status = 0;
+      CloseServiceHandle (handle);
+    } 
+  else
+    {
+      ACE_OS::set_errno_to_last_error ();
+    }
+
+  CloseServiceHandle (sc_mgr);
   return status;
 }
 
