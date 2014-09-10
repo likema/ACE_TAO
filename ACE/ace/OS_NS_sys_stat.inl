@@ -197,7 +197,7 @@ namespace ACE_OS
     ACE_OS_TRACE ("ACE_OS::stat");
 #if defined (ACE_HAS_NONCONST_STAT)
     ACE_OSCALL_RETURN (::stat (const_cast <char *> (file), stp), int, -1);
-#elif defined (ACE_HAS_WINCE)
+#elif defined (ACE_HAS_WINCE) || (defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION))
     ACE_TEXT_WIN32_FIND_DATA fdata;
 
     int rc = 0;
@@ -239,7 +239,7 @@ namespace ACE_OS
   stat (const wchar_t *file, ACE_stat *stp)
   {
     ACE_OS_TRACE ("ACE_OS::stat");
-#if defined (ACE_HAS_WINCE)
+#if defined (ACE_HAS_WINCE) || (defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION))
     WIN32_FIND_DATAW fdata;
 
     int rc = 0;
