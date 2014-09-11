@@ -216,7 +216,12 @@ namespace ACE_OS
       }
     else
       {
-        stp->st_mode = static_cast<mode_t>(fdata.dwFileAttributes);
+        ACE_OS::memset (stp, 0, sizeof (ACE_stat));
+        stp->st_nlink = 1;
+        stp->st_mode = S_IRUSR | S_IRGRP | S_IROTH |
+          (fdata.dwFileAttributes & FILE_ATTRIBUTE_READONLY ?
+           0 : (S_IWUSR | S_IWGRP | S_IWOTH)) |
+          (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? S_IFDIR : S_IFREG);
         stp->st_size = fdata.nFileSizeLow;
         stp->st_atime = ACE_Time_Value (fdata.ftLastAccessTime).sec ();
         stp->st_mtime = ACE_Time_Value (fdata.ftLastWriteTime).sec ();
@@ -258,7 +263,12 @@ namespace ACE_OS
       }
     else
       {
-        stp->st_mode = static_cast<mode_t>(fdata.dwFileAttributes);
+        ACE_OS::memset (stp, 0, sizeof (ACE_stat));
+        stp->st_nlink = 1;
+        stp->st_mode = S_IRUSR | S_IRGRP | S_IROTH |
+          (fdata.dwFileAttributes & FILE_ATTRIBUTE_READONLY ?
+           0 : (S_IWUSR | S_IWGRP | S_IWOTH)) |
+          (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? S_IFDIR : S_IFREG);
         stp->st_size = fdata.nFileSizeLow;
         stp->st_atime = ACE_Time_Value (fdata.ftLastAccessTime).sec ();
         stp->st_mtime = ACE_Time_Value (fdata.ftLastWriteTime).sec ();
