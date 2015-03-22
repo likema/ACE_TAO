@@ -281,3 +281,4 @@ SSL/SSL_Asynch_Stream_Test: SSL !ACE_FOR_TAO !BAD_AIO !FIXED_BUGS_ONLY
 SSL/Thread_Pool_Reactor_SSL_Test: SSL
 Bug_2873_Regression_Test
 Bug_2687_Regression_Test
+Cached_Conn_Strategy_Fail_Test
