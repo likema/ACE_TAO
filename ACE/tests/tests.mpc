@@ -2299,3 +2299,10 @@ project(Bug_2687_Regression_Test) : acetest {
     Bug_2687_Regression_Test.cpp
   }
 }
+
+project(Cached_Conn_Strategy_Fail_Test): acetest {
+  exename = Cached_Conn_Strategy_Fail_Test
+  Source_Files {
+    Cached_Conn_Strategy_Fail_Test.cpp
+  }
+}
