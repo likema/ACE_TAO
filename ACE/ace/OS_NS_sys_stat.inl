@@ -197,7 +197,25 @@ namespace ACE_OS
     ACE_OS_TRACE ("ACE_OS::stat");
 #if defined (ACE_HAS_NONCONST_STAT)
     ACE_OSCALL_RETURN (::stat (const_cast <char *> (file), stp), int, -1);
-#elif defined (ACE_HAS_WINCE) || (defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION))
+#elif defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION)
+    WIN32_FILE_ATTRIBUTE_DATA fdata;
+    if (!::GetFileAttributesExA (file, GetFileExInfoStandard, &fdata))
+     {
+       ACE_OS::set_errno_to_last_error ();
+       return -1;
+     }
+
+    stp->st_nlink = 1;
+    stp->st_mode = S_IRUSR | S_IRGRP | S_IROTH |
+        (fdata.dwFileAttributes & FILE_ATTRIBUTE_READONLY ?
+         0 : (S_IWUSR | S_IWGRP | S_IWOTH)) |
+        (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? S_IFDIR : S_IFREG);
+    stp->st_size = ACE_UINT64 (fdata.nFileSizeHigh) << 32 | fdata.nFileSizeLow;
+    stp->st_atime = ACE_Time_Value (fdata.ftLastAccessTime).sec ();
+    stp->st_mtime = ACE_Time_Value (fdata.ftLastWriteTime).sec ();
+    stp->st_ctime = ACE_Time_Value (fdata.ftCreationTime).sec ();
+    return 0;
+#elif defined (ACE_HAS_WINCE)
     ACE_TEXT_WIN32_FIND_DATA fdata;
 
     int rc = 0;
@@ -244,7 +262,25 @@ namespace ACE_OS
   stat (const wchar_t *file, ACE_stat *stp)
   {
     ACE_OS_TRACE ("ACE_OS::stat");
-#if defined (ACE_HAS_WINCE) || (defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION))
+#if (defined (ACE_WIN32) && defined (ACE_HAS_STAT_EMULATION))
+    WIN32_FILE_ATTRIBUTE_DATA fdata;
+    if (!::GetFileAttributesExW (file, GetFileExInfoStandard, &fdata))
+     {
+       ACE_OS::set_errno_to_last_error ();
+       return -1;
+     }
+
+    stp->st_nlink = 1;
+    stp->st_mode = S_IRUSR | S_IRGRP | S_IROTH |
+        (fdata.dwFileAttributes & FILE_ATTRIBUTE_READONLY ?
+         0 : (S_IWUSR | S_IWGRP | S_IWOTH)) |
+        (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? S_IFDIR : S_IFREG);
+    stp->st_size = ACE_UINT64 (fdata.nFileSizeHigh) << 32 | fdata.nFileSizeLow;
+    stp->st_atime = ACE_Time_Value (fdata.ftLastAccessTime).sec ();
+    stp->st_mtime = ACE_Time_Value (fdata.ftLastWriteTime).sec ();
+    stp->st_ctime = ACE_Time_Value (fdata.ftCreationTime).sec ();
+    return 0;
+#elif defined (ACE_HAS_WINCE)
     WIN32_FIND_DATAW fdata;
 
     int rc = 0;
