@@ -1,5 +1,6 @@
 // -*- C++ -*-
 #include "ace/os_include/os_errno.h"
+#include "ace/Min_Max.h"
 
 ACE_BEGIN_VERSIONED_NAMESPACE_DECL
 
@@ -37,6 +38,8 @@ ACE_OS::writev (ACE_HANDLE handle,
                                                iov,
                                                iovcnt), ssize_t, -1);
 #else /* ACE_LACKS_WRITEV */
+  iovcnt = ACE_MIN(iovcnt, ACE_IOV_MAX);
+
 #if defined (ACE_HAS_NONCONST_WRITEV)
   ACE_OSCALL_RETURN (::writev (handle,
                                const_cast<iovec *>(iov),
