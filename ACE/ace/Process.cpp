@@ -1149,31 +1149,26 @@ ACE_Process_Options::set_handles (ACE_HANDLE std_in,
   this->startup_info_.dwFlags = STARTF_USESTDHANDLES;
 
   if (std_in == ACE_INVALID_HANDLE)
-    std_in = ACE_STDIN;
-  if (std_out == ACE_INVALID_HANDLE)
-    std_out = ACE_STDOUT;
-  if (std_err == ACE_INVALID_HANDLE)
-    std_err = ACE_STDERR;
-
-  // STD handles may have value 0 (not ACE_INVALID_HANDLE) if there is no such
-  // handle in the process.  This was observed to occur for stdin in console
-  // processes that were launched from services.  In this case we need to make
-  // sure not to return -1 from setting std_in so that we can process std_out
-  // and std_err.
-
-  if (std_in)
     {
-      if (!::DuplicateHandle (::GetCurrentProcess (),
-                              std_in,
-                              ::GetCurrentProcess (),
-                              &this->startup_info_.hStdInput,
-                              0,
-                              TRUE,
-                              DUPLICATE_SAME_ACCESS))
+      this->startup_info_.hStdInput = ACE_INVALID_HANDLE;
+    }
+  else if (std_in)
+    {
+      if(!::DuplicateHandle (::GetCurrentProcess (),
+                             std_in,
+                             ::GetCurrentProcess (),
+                             &this->startup_info_.hStdInput,
+                             0,
+                             TRUE,
+                             DUPLICATE_SAME_ACCESS))
         return -1;
     }
 
-  if (std_out)
+  if (std_out == ACE_INVALID_HANDLE)
+    {
+      this->startup_info_.hStdOutput = ACE_INVALID_HANDLE;
+    }
+  else if (std_out)
     {
       if (!::DuplicateHandle (::GetCurrentProcess (),
                               std_out,
@@ -1185,7 +1180,11 @@ ACE_Process_Options::set_handles (ACE_HANDLE std_in,
         return -1;
     }
 
-  if (std_err)
+  if (std_err == ACE_INVALID_HANDLE)
+    {
+      this->startup_info_.hStdError = ACE_INVALID_HANDLE;
+    }
+  else if (std_err)
     {
       if (!::DuplicateHandle (::GetCurrentProcess (),
                               std_err,
