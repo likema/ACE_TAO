@@ -15,6 +15,73 @@
 
 #if defined (ACE_WIN32)
 #include /**/ <iphlpapi.h>
+
+typedef ULONG (WINAPI *PfnGetAdaptersAddresses) (
+    ULONG                 Family,
+    ULONG                 Flags,
+    PVOID                 Reserved,
+    PIP_ADAPTER_ADDRESSES AdapterAddresses,
+    PULONG                SizePointer);
+
+IP_ADAPTER_ADDRESSES*
+get_adapters_addresses (ULONG family, ULONG flags)
+{
+  const HMODULE h = GetModuleHandle ("iphlpapi.dll");
+  if (!h)
+    return NULL;
+
+  const PfnGetAdaptersAddresses fnGetAdaptersAddresses =
+    (PfnGetAdaptersAddresses) GetProcAddress (h, "GetAdaptersAddresses");
+
+  if (!fnGetAdaptersAddresses)
+    return NULL;
+
+  ULONG size = 0; // Initial call to determine actual memory size needed
+  DWORD e = fnGetAdaptersAddresses (family, flags, NULL, NULL, &size);
+  if (e != ERROR_BUFFER_OVERFLOW)
+    {
+      errno = e;
+      return NULL; // With output buffer size 0 this can't be right.
+    }
+
+  // Get required output buffer and retrieve info for real.
+  char* buf;
+  ACE_NEW_RETURN (buf, char[size], NULL);
+  IP_ADAPTER_ADDRESSES* const addrs = reinterpret_cast<PIP_ADAPTER_ADDRESSES> (buf);
+  if ((e = fnGetAdaptersAddresses (family, flags, 0, addrs, &size)) != NO_ERROR)
+    {
+      delete[] buf; // clean up
+      errno = e;
+      return NULL; // With output buffer size 0 this can't be right.
+    }
+
+  return addrs;
+}
+
+IP_ADAPTER_INFO*
+get_adapters_info ()
+{
+  ULONG size = 0; // Initial call to determine actual memory size needed
+  DWORD e = GetAdaptersInfo (NULL, &size);
+  if (e != ERROR_BUFFER_OVERFLOW)
+    {
+      errno = e;
+      return NULL; // With output buffer size 0 this can't be right.
+    }
+
+  // Get required output buffer and retrieve info for real.
+  char* buf;
+  ACE_NEW_RETURN (buf, char[size], NULL);
+  IP_ADAPTER_INFO* const info = reinterpret_cast<PIP_ADAPTER_INFO> (buf);
+  if ((e = GetAdaptersInfo (info, &size)) != NO_ERROR)
+    {
+      delete[] buf; // clean up
+      errno = e;
+      return NULL; // With output buffer size 0 this can't be right.
+    }
+
+  return info;
+}
 #endif
 
 #if defined (ACE_HAS_GETIFADDRS)
@@ -330,72 +397,51 @@ ACE_SOCK_Dgram_Mcast::subscribe_ifs (const ACE_INET_Addr &mcast_addr,
       ::freeifaddrs (ifap);
 
 # elif defined (ACE_WIN32)
-
-      IP_ADAPTER_ADDRESSES tmp_addrs;
-      // Initial call to determine actual memory size needed
-      DWORD dwRetVal;
-      ULONG bufLen = 0;
-      // Note... GetAdaptersAddresses returns different bufLen values depending
-      // on how many multicast joins there are on the system. To avoid this,
-      // specify that we don't want to know about multicast addresses. This
-      // does not avoid multicastable interfaces and makes the size-check
-      // more reliable across varying conditions.
-      DWORD flags = GAA_FLAG_SKIP_MULTICAST;
-      if ((dwRetVal = ::GetAdaptersAddresses (family,
-                                              flags,
-                                              0,
-                                              &tmp_addrs,
-                                              &bufLen)) != ERROR_BUFFER_OVERFLOW)
+      if (IP_ADAPTER_ADDRESSES* const addrs = get_adapters_addresses (family, GAA_FLAG_SKIP_MULTICAST))
         {
-          errno = dwRetVal;
-          return -1; // With output bufferlength 0 this can't be right.
+          for (const IP_ADAPTER_ADDRESSES* i = addrs; i; i = i->Next)
+            {
+              if (i->OperStatus != IfOperStatusUp)
+                continue;
+
+              // The ACE_SOCK_Dgram::make_multicast_ifaddr (IPv4), called by join(),
+              // can only deal with a dotted-decimal address, not an interface name.
+              if (family == AF_INET)
+                {
+                  ACE_INET_Addr intf_addr ((sockaddr_in*)(i->FirstUnicastAddress->Address.lpSockaddr),
+                                           i->FirstUnicastAddress->Address.iSockaddrLength);
+                  char intf_addr_str[INET_ADDRSTRLEN];
+                  intf_addr.get_host_addr (intf_addr_str, sizeof (intf_addr_str));
+                  if (this->join (mcast_addr, reuse_addr,
+                                  ACE_TEXT_CHAR_TO_TCHAR(intf_addr_str)) == 0)
+                    ++nr_subscribed;
+                }
+              else
+                {
+                  if (this->join (mcast_addr, reuse_addr,
+                                  ACE_TEXT_CHAR_TO_TCHAR(i->AdapterName)) == 0)
+                    ++nr_subscribed;
+                }
+            }
+
+          delete[] reinterpret_cast<char*> (addrs);
         }
-
-      // Get required output buffer and retrieve info for real.
-      PIP_ADAPTER_ADDRESSES pAddrs;
-      char *buf;
-      ACE_NEW_RETURN (buf,
-                      char[bufLen],
-                      -1);
-      pAddrs = reinterpret_cast<PIP_ADAPTER_ADDRESSES> (buf);
-      if ((dwRetVal = ::GetAdaptersAddresses (family,
-                                              flags,
-                                              0,
-                                              pAddrs,
-                                              &bufLen)) != NO_ERROR)
+      else if (IP_ADAPTER_INFO* const info = get_adapters_info ())
         {
-          delete[] buf; // clean up
-          errno = dwRetVal;
+
+          for (const IP_ADAPTER_INFO* i = info; i; i = i->Next)
+            {
+              if (this->join (mcast_addr, reuse_addr,
+                              ACE_TEXT_CHAR_TO_TCHAR(i->IpAddressList.IpAddress.String)) == 0)
+                ++nr_subscribed;
+            }
+
+          delete[] reinterpret_cast<char*> (info);
+        }
+      else
+        {
           return -1;
         }
-
-      for (; pAddrs; pAddrs = pAddrs->Next)
-        {
-          if (pAddrs->OperStatus != IfOperStatusUp)
-            continue;
-
-          // The ACE_SOCK_Dgram::make_multicast_ifaddr (IPv4), called by join(),
-          // can only deal with a dotted-decimal address, not an interface name.
-          if (family == AF_INET)
-            {
-              ACE_INET_Addr intf_addr ((sockaddr_in*)(pAddrs->FirstUnicastAddress->Address.lpSockaddr),
-                                       pAddrs->FirstUnicastAddress->Address.iSockaddrLength);
-              char intf_addr_str[INET_ADDRSTRLEN];
-              intf_addr.get_host_addr (intf_addr_str, sizeof (intf_addr_str));
-              if (this->join (mcast_addr, reuse_addr,
-                              ACE_TEXT_CHAR_TO_TCHAR(intf_addr_str)) == 0)
-                ++nr_subscribed;
-            }
-          else
-            {
-              if (this->join (mcast_addr, reuse_addr,
-                              ACE_TEXT_CHAR_TO_TCHAR(pAddrs->AdapterName)) == 0)
-                ++nr_subscribed;
-            }
-        }
-
-      delete[] buf; // clean up
-
 # else
 
       // Subscribe on all local multicast-capable network interfaces, by
@@ -646,45 +692,30 @@ ACE_SOCK_Dgram_Mcast::unsubscribe_ifs (const ACE_INET_Addr &mcast_addr,
           ACE_OS::if_freenameindex (intf);
 
 # elif defined (ACE_WIN32)
-
-          IP_ADAPTER_ADDRESSES tmp_addrs;
-          // Initial call to determine actual memory size needed
-          DWORD dwRetVal;
-          ULONG bufLen = 0;
-          if ((dwRetVal = ::GetAdaptersAddresses (AF_INET6,
-                                                  0,
-                                                  0,
-                                                  &tmp_addrs,
-                                                  &bufLen)) != ERROR_BUFFER_OVERFLOW)
-            return -1; // With output bufferlength 0 this can't be right.
-
-          // Get required output buffer and retrieve info for real.
-          PIP_ADAPTER_ADDRESSES pAddrs;
-          char *buf;
-          ACE_NEW_RETURN (buf,
-                          char[bufLen],
-                          -1);
-          pAddrs = reinterpret_cast<PIP_ADAPTER_ADDRESSES> (buf);
-          if ((dwRetVal = ::GetAdaptersAddresses (AF_INET6,
-                                                  0,
-                                                  0,
-                                                  pAddrs,
-                                                  &bufLen)) != NO_ERROR)
+          if (IP_ADAPTER_ADDRESSES* const addrs = get_adapters_addresses (AF_INET6, 0))
             {
-              delete[] buf; // clean up
+              for (const IP_ADAPTER_ADDRESSES* i = addrs; i; i = i->Next)
+                {
+                  if (this->leave (mcast_addr, ACE_TEXT_CHAR_TO_TCHAR(i->AdapterName)) == 0)
+                    ++nr_unsubscribed;
+                }
+
+              delete[] reinterpret_cast<char*> (addrs);
+            }
+          else if (IP_ADAPTER_INFO* const info = get_adapters_info ())
+            {
+              for (const IP_ADAPTER_INFO* i = info; i; i = i->Next)
+                {
+                  if (this->leave (mcast_addr, ACE_TEXT_CHAR_TO_TCHAR(i->AdapterName)) == 0)
+                    ++nr_unsubscribed;
+                }
+
+              delete[] reinterpret_cast<char*> (info);
+            }
+          else
+            {
               return -1;
             }
-
-          while (pAddrs)
-            {
-              if (this->leave (mcast_addr, ACE_TEXT_CHAR_TO_TCHAR(pAddrs->AdapterName)) == 0)
-                ++nr_unsubscribed;
-
-              pAddrs = pAddrs->Next;
-            }
-
-          delete[] buf; // clean up
-
 # endif /* ACE_WIN32 */
 
           if (nr_unsubscribed == 0)
