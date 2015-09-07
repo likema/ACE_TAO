@@ -29,12 +29,15 @@ CXX             = g++
 
 ifeq ($(threads),1)
   CPPFLAGS      += -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS
+  LIBS          += -lpthread
+else
+  LIBS          += -lthread
 endif
 
 DLD             = $(CXX)
 LD              = $(CXX)
 LDFLAGS         +=
-LIBS            += -lsocket -ldl -lgen -lnsl -lposix4 -lthread
+LIBS            += -lsocket -ldl -lgen -lnsl -lposix4
 OCFLAGS         += -O3
 OCCFLAGS        += -O3
 PIC             = -fPIC
