@@ -363,9 +363,50 @@ ACE_Process::spawn (ACE_Process_Options &options)
 
   return this->child_id_;
 #else /* ACE_WIN32 */
+  pid_t pgid = options.getgroup ();
+  uid_t rgid = options.getrgid ();
+  uid_t egid = options.getegid ();
+  uid_t ruid = options.getruid ();
+  uid_t euid = options.geteuid ();
+  bool no_exec_enabled = ACE_BIT_ENABLED (options.creation_flags (),
+                                          ACE_Process_Options::NO_EXEC);
+  ACE_HANDLE stdin_handle = options.get_stdin ();
+  ACE_HANDLE stdout_handle = options.get_stdout ();
+  ACE_HANDLE stderr_handle = options.get_stderr ();
+  int handle_inheritance = options.handle_inheritance ();
+  bool inherit_environment = options.inherit_environment ();
+
+  ACE_TCHAR procname[MAXPATHLEN + 1];
+  ACE_TCHAR working_directory[MAXPATHLEN + 1];
+
+  if (options.process_name ())
+    {
+      ACE_OS::strcpy (procname, options.process_name ());
+    }
+  else
+    {
+      procname[0] = '\0';
+    }
+
+  if (options.working_directory ())
+    {
+      ACE_OS::strcpy (working_directory, options.working_directory ());
+    }
+  else
+    {
+      working_directory[0] = '\0';
+    }
+
+# if defined (ACE_USES_WCHAR)
+  wchar_t *const *wprocargv = options.command_line_argv ();
+  wchar_t *const* wprocenv = options.env_argv ();
+# else
+  char *const *procargv = options.command_line_argv ();
+  char *const *procenv = options.env_argv ();
+# endif /* ACE_USES_WCHAR */
+
   // Fork the new process.
-  this->child_id_ = ACE::fork (options.process_name (),
-                               options.avoid_zombies ());
+  this->child_id_ = ACE::fork (procname, options.avoid_zombies ());
 
   if (this->child_id_ == 0)
     {
@@ -374,9 +415,7 @@ ACE_Process::spawn (ACE_Process_Options &options)
       // process group, try to set our pgid to it.  This allows the
       // <ACE_Process_Manager> to wait for processes by their
       // process-group.
-      if (options.getgroup () != ACE_INVALID_PID
-          && ACE_OS::setpgid (0,
-                              options.getgroup ()) < 0)
+      if (pgid != ACE_INVALID_PID && ACE_OS::setpgid (0, pgid) < 0)
         {
 #if !defined (ACE_HAS_THREADS)
           // We can't emit this log message because ACELIB_ERROR(), etc.
@@ -390,10 +429,8 @@ ACE_Process::spawn (ACE_Process_Options &options)
 # endif /* ACE_LACKS_SETPGID */
 
 # if !defined (ACE_LACKS_SETREGID)
-      if (options.getrgid () != (uid_t) -1
-          || options.getegid () != (uid_t) -1)
-        if (ACE_OS::setregid (options.getrgid (),
-                              options.getegid ()) == -1)
+      if (rgid != (uid_t) -1 || egid != (uid_t) -1)
+        if (ACE_OS::setregid (rgid, egid) == -1)
           {
 #if !defined (ACE_HAS_THREADS)
             // We can't emit this log message because ACELIB_ERROR(), etc.
@@ -408,10 +445,8 @@ ACE_Process::spawn (ACE_Process_Options &options)
 
 # if !defined (ACE_LACKS_SETREUID)
       // Set user and group id's.
-      if (options.getruid () != (uid_t) -1
-          || options.geteuid () != (uid_t) -1)
-        if (ACE_OS::setreuid (options.getruid (),
-                              options.geteuid ()) == -1)
+      if (ruid != (uid_t) -1 || euid != (uid_t) -1)
+        if (ACE_OS::setreuid (ruid, euid) == -1)
           {
 #if !defined (ACE_HAS_THREADS)
             // We can't emit this log message because ACELIB_ERROR(), etc.
@@ -430,8 +465,7 @@ ACE_Process::spawn (ACE_Process_Options &options)
     this->parent (this->child_id_);
 
   // If we're not supposed to exec, return the process id.
-  if (ACE_BIT_ENABLED (options.creation_flags (),
-                       ACE_Process_Options::NO_EXEC))
+  if (no_exec_enabled)
     return this->child_id_;
 
   switch (this->child_id_)
@@ -442,24 +476,21 @@ ACE_Process::spawn (ACE_Process_Options &options)
     case 0:
       // Child process...exec the
       {
-        if (options.get_stdin () != ACE_INVALID_HANDLE
-            && ACE_OS::dup2 (options.get_stdin (),
-                             ACE_STDIN) == -1)
+        if (stdin_handle != ACE_INVALID_HANDLE
+            && ACE_OS::dup2 (stdin_handle, ACE_STDIN) == -1)
           ACE_OS::exit (errno);
-        else if (options.get_stdout () != ACE_INVALID_HANDLE
-                 && ACE_OS::dup2 (options.get_stdout (),
-                                  ACE_STDOUT) == -1)
+        else if (stdout_handle != ACE_INVALID_HANDLE
+                 && ACE_OS::dup2 (stdout_handle, ACE_STDOUT) == -1)
           ACE_OS::exit (errno);
-        else if (options.get_stderr () != ACE_INVALID_HANDLE
-                 && ACE_OS::dup2 (options.get_stderr (),
-                                  ACE_STDERR) == -1)
+        else if (stderr_handle != ACE_INVALID_HANDLE
+                 && ACE_OS::dup2 (stderr_handle, ACE_STDERR) == -1)
           ACE_OS::exit (errno);
 
         // close down unneeded descriptors
-        ACE_OS::close (options.get_stdin ());
-        ACE_OS::close (options.get_stdout ());
-        ACE_OS::close (options.get_stderr ());
-        if (!options.handle_inheritance ())
+        ACE_OS::close (stdin_handle);
+        ACE_OS::close (stdout_handle);
+        ACE_OS::close (stderr_handle);
+        if (!handle_inheritance)
           {
             // Set close-on-exec for all FDs except standard handles
             for (int i = ACE::max_handles () - 1; i >= 0; i--)
@@ -472,8 +503,8 @@ ACE_Process::spawn (ACE_Process_Options &options)
 
         // If we must, set the working directory for the child
         // process.
-        if (options.working_directory () != 0)
-          ACE_OS::chdir (options.working_directory ());
+        if (working_directory[0] != '\0')
+          ACE_OS::chdir (working_directory);
         // Should check for error here!
 
         // Child process executes the command.
@@ -484,10 +515,10 @@ ACE_Process::spawn (ACE_Process_Options &options)
         // releasing any of the converted string memory since this
         // process will either exec() or exit() shortly.
 # if defined (ACE_USES_WCHAR)
-        ACE_Wide_To_Ascii n_procname (options.process_name ());
+        ACE_Wide_To_Ascii n_procname (procname);
         const char *procname = n_procname.char_rep ();
 
-        wchar_t * const *wargv = options.command_line_argv ();
+        wchar_t * const *wargv = wprocargv;
         size_t vcount, i;
         for (vcount = 0; wargv[vcount] != 0; ++vcount)
           ;
@@ -496,20 +527,16 @@ ACE_Process::spawn (ACE_Process_Options &options)
         for (i = 0; i < vcount; ++i)
           procargv[i] = ACE_Wide_To_Ascii::convert (wargv[i]);
 
-        wargv = options.env_argv ();
+        wargv = wprocenv;
         for (vcount = 0; wargv[vcount] != 0; ++vcount)
           ;
         char **procenv = new char *[vcount + 1];  // Need 0 at the end
         procenv[vcount] = 0;
         for (i = 0; i < vcount; ++i)
           procenv[i] = ACE_Wide_To_Ascii::convert (wargv[i]);
-# else
-        const char *procname = options.process_name ();
-        char *const *procargv = options.command_line_argv ();
-        char *const *procenv = options.env_argv ();
 # endif /* ACE_USES_WCHAR */
 
-        if (options.inherit_environment ())
+        if (inherit_environment)
           {
             // Add the new environment variables to the environment
             // context of the context before doing an <execvp>.
