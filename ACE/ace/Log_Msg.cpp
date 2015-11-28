@@ -128,6 +128,11 @@ public:
 
   static ACE_Recursive_Thread_Mutex *get_lock (void);
 
+#ifdef ACE_HAS_PTHREADS
+private:
+  static void reset_lock (void);
+#endif
+
 private:
   static ACE_Recursive_Thread_Mutex *lock_;
 #endif /* ! ACE_MT_SAFE */
@@ -200,6 +205,9 @@ ACE_Log_Msg_Manager::get_lock (void)
       ACE_NEW_RETURN (ACE_Log_Msg_Manager::lock_,
                       ACE_Recursive_Thread_Mutex,
                       0);
+#ifdef ACE_HAS_PTHREADS
+      pthread_atfork (NULL, NULL, ACE_Log_Msg_Manager::reset_lock);
+#endif
     }
 
   if (init_backend () == -1)
@@ -207,6 +215,25 @@ ACE_Log_Msg_Manager::get_lock (void)
 
   return ACE_Log_Msg_Manager::lock_;
 }
+
+#ifdef ACE_HAS_PTHREADS
+void ACE_Log_Msg_Manager::reset_lock (void)
+{
+  ACE_NO_HEAP_CHECK;
+
+  if (ACE_Log_Msg_Manager::lock_ != 0)
+    {
+      if (ACE_Log_Msg_Manager::lock_->tryacquire () == 0)
+        {
+          ACE_Log_Msg_Manager::lock_->release ();
+          return;
+        }
+
+      delete ACE_Log_Msg_Manager::lock_;
+      ACE_NEW (ACE_Log_Msg_Manager::lock_, ACE_Recursive_Thread_Mutex);
+    }
+}
+#endif
 
 void
 ACE_Log_Msg_Manager::close (void)
