@@ -456,15 +456,14 @@ ACE_Process_Manager::spawn (ACE_Process *process,
                             ACE_Event_Handler *event_handler)
 {
   ACE_TRACE ("ACE_Process_Manager::spawn");
+  ACE_MT (ACE_GUARD_RETURN (ACE_Recursive_Thread_Mutex,
+                            ace_mon, this->lock_, -1));
 
   pid_t const pid = process->spawn (options);
 
   // Only include the pid in the parent's table.
   if (pid == ACE_INVALID_PID || pid == 0)
     return pid;
-
-  ACE_MT (ACE_GUARD_RETURN (ACE_Recursive_Thread_Mutex,
-                            ace_mon, this->lock_, -1));
 
   if (this->append_proc (process, event_handler) == -1)
     // bad news: spawned, but not registered in table.
