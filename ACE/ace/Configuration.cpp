@@ -612,6 +612,7 @@ ACE_Configuration_Win32Registry::enumerate_values (const ACE_Configuration_Secti
       type = BINARY;
       break;
     case REG_SZ:
+    case REG_EXPAND_SZ:
       type = STRING;
       break;
     case REG_DWORD:
@@ -773,7 +774,7 @@ ACE_Configuration_Win32Registry::get_string_value (const ACE_Configuration_Secti
       return -1;
     }
 
-  if (type != REG_SZ)
+  if (type != REG_SZ && type != REG_EXPAND_SZ)
     {
       errno = ERROR_INVALID_DATATYPE;
       return -1;
@@ -926,6 +927,7 @@ ACE_Configuration_Win32Registry::find_value (const ACE_Configuration_Section_Key
   switch (type)
     {
     case REG_SZ:
+    case REG_EXPAND_SZ:
       type_out = STRING;
       break;
     case REG_DWORD:
