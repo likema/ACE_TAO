@@ -328,6 +328,7 @@ public:
   uid_t geteuid (void) const;
   uid_t getrgid (void) const;
   uid_t getegid (void) const;
+  const ACE_TCHAR* get_user (void) const;
 
   /**
    * Get the inherit_environment flag.
@@ -386,6 +387,7 @@ protected:
 
   // = Real & effective user & group id's.
   //   These should be set to -1 to leave unchanged (default).
+  ACE_TCHAR user_[33];
   uid_t ruid_;
   uid_t euid_;
   uid_t rgid_;
