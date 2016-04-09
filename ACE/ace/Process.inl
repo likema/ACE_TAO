@@ -259,6 +259,7 @@ ACE_Process_Options::setreugid (const ACE_TCHAR* user)
 
   if (ent != 0)
     {
+      ACE_OS::strsncpy (user_, user, sizeof user_);
       this->euid_ = ent->pw_uid;
       this->ruid_ = ent->pw_uid;
       this->egid_ = ent->pw_gid;
@@ -319,6 +320,12 @@ ACE_INLINE uid_t
 ACE_Process_Options::getegid (void) const
 {
   return this->egid_;
+}
+
+ACE_INLINE const ACE_TCHAR*
+ACE_Process_Options::get_user (void) const
+{
+  return this->user_;
 }
 #endif /* ACE_WIN32 */
 
