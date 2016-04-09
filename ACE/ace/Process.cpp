@@ -21,6 +21,7 @@
 #include "ace/Truncate.h"
 #include "ace/Vector_T.h"
 #include "ace/Tokenizer_T.h"
+#include "ace/os_include/os_grp.h"
 
 #if defined (ACE_VXWORKS) && defined (__RTP__)
 # include <rtpLib.h>
@@ -405,6 +406,21 @@ ACE_Process::spawn (ACE_Process_Options &options)
 #endif
           }
 # endif /* ACE_LACKS_SETREGID */
+
+# if !defined (ACE_LACKS_GRP_H)
+      if (*options.get_user () && options.getrgid () != (uid_t) -1
+          && initgroups (options.get_user (), options.getrgid ()) == -1)
+        {
+#   if !defined (ACE_HAS_THREADS)
+          // We can't emit this log message because ACELIB_ERROR(), etc.
+          // will invoke async signal unsafe functions, which results
+          // in undefined behavior in threaded programs.
+          ACELIB_ERROR ((LM_ERROR,
+                      ACE_TEXT ("%p.\n"),
+                      ACE_TEXT ("ACE_Process::spawn: initgroups failed.")));
+#   endif
+        }
+# endif /* ACE_LACKS_GRP_H */
 
 # if !defined (ACE_LACKS_SETREUID)
       // Set user and group id's.
@@ -847,6 +863,9 @@ ACE_Process_Options::ACE_Process_Options (bool inherit_environment,
 #endif /* ACE_HAS_ALLOC_HOOKS */
   command_line_buf_[0] = '\0';
   process_name_[0] = '\0';
+#if !defined (ACE_WIN32)
+  user_[0] = '\0';
+#endif
 
 #if defined (ACE_HAS_WINCE)
   ACE_UNUSED_ARG(inherit_environment);
