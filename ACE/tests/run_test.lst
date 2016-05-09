@@ -283,3 +283,4 @@ SSL/Thread_Pool_Reactor_SSL_Test: SSL
 Bug_2873_Regression_Test
 Bug_2687_Regression_Test
 Cached_Conn_Strategy_Fail_Test
+Strenvdup_Test

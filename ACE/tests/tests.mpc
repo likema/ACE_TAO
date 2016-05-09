@@ -2257,3 +2257,10 @@ project(Cached_Conn_Strategy_Fail_Test): acetest {
     Cached_Conn_Strategy_Fail_Test.cpp
   }
 }
+
+project(Strenvdup Test) : acetest {
+  exename = Strenvdup_Test
+  Source_Files {
+    Strenvdup_Test.cpp
+  }
+}
