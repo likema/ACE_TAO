@@ -103,6 +103,27 @@ ACE_OS::getenvstrings (void)
 #endif /* ACE_WIN32 */
 }
 
+static bool strenvdup_resize (ACE_TCHAR *&buf, size_t &size,
+                              ACE_TCHAR *&cur, size_t src_size)
+{
+  const size_t remain = size - (cur - buf);
+  if (remain < src_size)
+    {
+      size += src_size - remain;
+      const size_t off = cur - buf;
+      ACE_TCHAR* const t = (char*) ACE_OS::realloc (buf, size);
+      if (!t)
+        {
+          ACE_OS::free(buf);
+          return false;
+        }
+
+      buf = t;
+      cur = buf + off;
+    }
+  return true;
+}
+
 // Return a dynamically allocated duplicate of <str>, substituting the
 // environment variables of form $VAR_NAME.  Note that the pointer is
 // allocated with <ACE_OS::malloc> and must be freed by
@@ -118,62 +139,75 @@ ACE_OS::strenvdup (const ACE_TCHAR *str)
   ACE_UNUSED_ARG (str);
   ACE_NOTSUP_RETURN (0);
 #else
-  const ACE_TCHAR * start = 0;
-  if ((start = ACE_OS::strchr (str, ACE_TEXT ('$'))) != 0)
+  if (!str)
+    return 0;
+
+  size_t size = ACE_OS::strlen (str) + 1;
+  ACE_TCHAR* buf = (ACE_TCHAR *) ACE_OS::malloc (size);
+  if (!buf)
+    return 0;
+
+  ACE_TCHAR *cur = buf;
+  const ACE_TCHAR *p = str;
+
+  while (const ACE_TCHAR* q = ACE_OS::strchr (p, ACE_TEXT ('$')))
     {
-      ACE_TCHAR buf[ACE_DEFAULT_ARGV_BUFSIZ];
-      size_t var_len = ACE_OS::strcspn (&start[1],
-        ACE_TEXT ("$~!#%^&*()-+=\\|/?,.;:'\"`[]{} \t\n\r"));
-      ACE_OS::strncpy (buf, &start[1], var_len);
-      buf[var_len++] = ACE_TEXT ('\0');
-#  if defined (ACE_WIN32)
-      // Always use the ACE_TCHAR for Windows.
-      ACE_TCHAR *temp = ACE_OS::getenv (buf);
-#  else
-      // Use char * for environment on non-Windows.
-      char *temp = ACE_OS::getenv (ACE_TEXT_ALWAYS_CHAR (buf));
-#  endif /* ACE_WIN32 */
-      size_t buf_len = ACE_OS::strlen (str) + 1;
-      if (temp != 0)
-        buf_len += ACE_OS::strlen (temp) - var_len;
-      ACE_TCHAR * buf_p = buf;
-      if (buf_len > ACE_DEFAULT_ARGV_BUFSIZ)
+      if (const size_t n = q - p)
         {
-          buf_p =
-#if defined (ACE_HAS_ALLOC_HOOKS)
-            (ACE_TCHAR *) ACE_Allocator::instance()->malloc (buf_len * sizeof (ACE_TCHAR));
-#else
-            (ACE_TCHAR *) ACE_OS::malloc (buf_len * sizeof (ACE_TCHAR));
-#endif /* ACE_HAS_ALLOC_HOOKS */
-          if (buf_p == 0)
-            {
-              errno = ENOMEM;
-              return 0;
-            }
+          if (!strenvdup_resize (buf, size, cur, n + 1))
+            return 0;
+
+          ACE_OS::strncpy (cur, p, n);
+          cur += n;
         }
-      ACE_TCHAR * p = buf_p;
-      size_t len = start - str;
-      ACE_OS::strncpy (p, str, len);
-      p += len;
-      if (temp != 0)
+
+      const size_t off = ACE_OS::strcspn (++q,
+          ACE_TEXT ("$~!#%^&*()-+=\\|/?,.;:'\"`[]{} \t\n\r"));
+      if (off)
         {
+          ACE_TCHAR name[ACE_DEFAULT_ARGV_BUFSIZ];
+          ACE_OS::strncpy (name, q, off)[off] = 0;
 #  if defined (ACE_WIN32)
-          p = ACE_OS::strecpy (p, temp) - 1;
+          const ACE_TCHAR* const value = ACE_OS::getenv (name);
 #  else
-          p = ACE_OS::strecpy (p, ACE_TEXT_CHAR_TO_TCHAR (temp)) - 1;
+          // Use char * for environment on non-Windows.
+          const char* const value = ACE_OS::getenv (
+              ACE_TEXT_ALWAYS_CHAR (name));
 #  endif /* ACE_WIN32 */
+          if (value)
+            {
+              if (const size_t n = ACE_OS::strlen (value))
+                {
+                  if (!strenvdup_resize (buf, size, cur, n + 1))
+                    return 0;
+
+                  ACE_OS::strncpy (cur, ACE_TEXT_CHAR_TO_TCHAR (value), n);
+                  cur += n;
+                }
+            }
+          else
+            {
+              ACE_OS::strncpy (cur, q - 1, off + 1);
+              cur += off + 1;
+            }
         }
       else
         {
-          ACE_OS::strncpy (p, start, var_len);
-          p += var_len;
-          *p = ACE_TEXT ('\0');
+          *cur++ = '$';
         }
-      ACE_OS::strcpy (p, &start[var_len]);
-      return (buf_p == buf) ? ACE_OS::strdup (buf) : buf_p;
+
+      p = q + off;
     }
-  else
-    return ACE_OS::strdup (str);
+
+  if (p != str)
+    {
+      const size_t n = ACE_OS::strlen (p);
+      if (!strenvdup_resize(buf, size, cur, n + 1))
+        return 0;
+    }
+
+  ACE_OS::strcpy (cur, p);
+  return buf;
 #endif /* ACE_HAS_WINCE */
 }
 
