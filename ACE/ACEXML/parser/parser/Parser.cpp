@@ -2653,10 +2653,9 @@ ACEXML_Parser::setProperty (const ACEXML_Char *name,
 void
 ACEXML_Parser::error (const ACEXML_Char* msg)
 {
-  ACEXML_SAXParseException* exception = 0;
-  ACE_NEW_NORETURN (exception, ACEXML_SAXParseException (msg));
+  ACEXML_SAXParseException exception (msg);
   if (this->error_handler_)
-      this->error_handler_->error (*exception);
+      this->error_handler_->error (exception);
   else
     throw exception;
   return;
@@ -2665,21 +2664,18 @@ ACEXML_Parser::error (const ACEXML_Char* msg)
 void
 ACEXML_Parser::warning (const ACEXML_Char* msg)
 {
-  ACEXML_SAXParseException* exception = 0;
-  ACE_NEW_NORETURN (exception, ACEXML_SAXParseException (msg));
+  ACEXML_SAXParseException exception (msg);
   if (this->error_handler_)
-    this->error_handler_->warning (*exception);
-  delete exception;
+    this->error_handler_->warning (exception);
   return;
 }
 
 void
 ACEXML_Parser::fatal_error (const ACEXML_Char* msg)
 {
-  ACEXML_SAXParseException* exception = 0;
-  ACE_NEW_NORETURN (exception, ACEXML_SAXParseException (msg));
+  ACEXML_SAXParseException exception (msg);
   if (this->error_handler_)
-    this->error_handler_->fatalError (*exception);
+    this->error_handler_->fatalError (exception);
   this->reset();
   throw exception;
   return;
