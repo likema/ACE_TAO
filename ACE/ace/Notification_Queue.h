@@ -14,6 +14,7 @@
 #include "ace/Intrusive_List.h"
 #include "ace/Intrusive_List_Node.h"
 #include "ace/Unbounded_Queue.h"
+#include "ace/Recursive_Thread_Mutex.h"
 
 ACE_BEGIN_VERSIONED_NAMESPACE_DECL
 
@@ -143,7 +144,7 @@ private:
   Buffer_List free_queue_;
 
   /// Synchronization for handling of queues.
-  ACE_SYNCH_MUTEX notify_queue_lock_;
+  ACE_SYNCH_RECURSIVE_MUTEX notify_queue_lock_;
 };
 
 ACE_END_VERSIONED_NAMESPACE_DECL
