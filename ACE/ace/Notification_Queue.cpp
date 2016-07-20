@@ -30,7 +30,7 @@ ACE_Notification_Queue::open()
 {
   ACE_TRACE ("ACE_Notification_Queue::open");
 
-  ACE_GUARD_RETURN (ACE_SYNCH_MUTEX, mon, this->notify_queue_lock_, -1);
+  ACE_GUARD_RETURN (ACE_SYNCH_RECURSIVE_MUTEX, mon, this->notify_queue_lock_, -1);
 
   if (!this->free_queue_.is_empty ())
     return 0;
@@ -105,7 +105,7 @@ ACE_Notification_Queue::purge_pending_notifications(
 {
   ACE_TRACE ("ACE_Notification_Queue::purge_pending_notifications");
 
-  ACE_GUARD_RETURN (ACE_SYNCH_MUTEX, mon, this->notify_queue_lock_, -1);
+  ACE_GUARD_RETURN (ACE_SYNCH_RECURSIVE_MUTEX, mon, this->notify_queue_lock_, -1);
 
   if (this->notify_queue_.is_empty ())
     return 0;
@@ -161,7 +161,7 @@ ACE_Notification_Queue::push_new_notification(
 
   bool notification_required = false;
 
-  ACE_GUARD_RETURN (ACE_SYNCH_MUTEX, mon, this->notify_queue_lock_, -1);
+  ACE_GUARD_RETURN (ACE_SYNCH_RECURSIVE_MUTEX, mon, this->notify_queue_lock_, -1);
 
   // No pending notifications.
   if (this->notify_queue_.is_empty ())
@@ -201,7 +201,7 @@ ACE_Notification_Queue::pop_next_notification(
 
   more_messages_queued = false;
 
-  ACE_GUARD_RETURN (ACE_SYNCH_MUTEX, mon, this->notify_queue_lock_, -1);
+  ACE_GUARD_RETURN (ACE_SYNCH_RECURSIVE_MUTEX, mon, this->notify_queue_lock_, -1);
 
   if (notify_queue_.is_empty ())
     {
