@@ -993,11 +993,6 @@ ACE_Process_Options::setenv (ACE_TCHAR *envp[])
       i++;
     }
 
-#if defined (ACE_WIN32)
-  if (inherit_environment_)
-    this->inherit_environment ();
-#endif /* ACE_WIN32 */
-
   return 0;
 }
 
@@ -1025,11 +1020,6 @@ ACE_Process_Options::setenv (const ACE_TCHAR *format, ...)
   if (this->setenv_i (stack_buf,
                       ACE_OS::strlen (stack_buf)) == -1)
     return -1;
-
-#if defined (ACE_WIN32)
-  if (inherit_environment_)
-    this->inherit_environment ();
-#endif /* ACE_WIN32 */
 
   return 0;
 }
@@ -1117,11 +1107,6 @@ ACE_Process_Options::setenv (const ACE_TCHAR *variable_name,
                       ACE_OS::strlen (safe_stack_buf.get ())) == -1)
     return -1;
 
-#if defined (ACE_WIN32)
-  if (inherit_environment_)
-    this->inherit_environment ();
-#endif /* ACE_WIN32 */
-
   return 0;
 }
 #endif // ACE_LACKS_VA_FUNCTIONS
@@ -1138,6 +1123,17 @@ ACE_Process_Options::setenv_i (ACE_TCHAR *assignment,
   if (environment_argv_index_ == max_environ_argv_index_
       || (len + environment_buf_index_) >= environment_buf_len_)
     return -1;
+
+  // Skip if already exists.
+  if (ACE_TCHAR *pos = ACE_OS::strchr(assignment, '='))
+    {
+      size_t len = pos - assignment + 1;
+      for (size_t i = 0; environment_argv_[i]; ++i)
+      {
+        if (ACE_OS::strncmp(environment_argv_[i], assignment, len) == 0)
+          return 0;
+      }
+    }
 
   // Copy the new environment string.
   ACE_OS::memcpy (environment_buf_ + environment_buf_index_,
@@ -1370,6 +1366,11 @@ ACE_TCHAR *
 ACE_Process_Options::env_buf (void)
 {
 #if !defined (ACE_HAS_WINCE)
+# if defined (ACE_WIN32)
+  if (inherit_environment_)
+    this->inherit_environment ();
+# endif /* ACE_WIN32 */
+
   if (environment_buf_[0] == '\0')
     return 0;
   else
