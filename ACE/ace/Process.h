@@ -308,6 +308,12 @@ public:
   /// CreateProcess.
   LPSECURITY_ATTRIBUTES set_thread_attributes (void);
 
+  /// Get user token. Return ACE_INVALID_HANDLE if it has not been set.
+  HANDLE get_user_token (void) const;
+
+  /// If this is called, a user token is sent to CreateProcessAsUser.
+  void set_user_token (HANDLE token, bool close_token = false);
+
 #else /* All things not WIN32 */
 
   /// argv-style array of environment settings.
@@ -380,6 +386,11 @@ protected:
   /// Data for thread_attributes_.
   SECURITY_ATTRIBUTES security_buf2_;
 
+  /// User token for \a CreateProcessAsUser
+  HANDLE user_token_;
+
+  /// Keeps track of whether we need to close user token.
+  bool close_user_token_;
 #else /* !ACE_WIN32 */
   ACE_HANDLE stdin_;
   ACE_HANDLE stdout_;
