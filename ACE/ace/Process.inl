@@ -219,6 +219,22 @@ ACE_Process_Options::set_thread_attributes (void)
 #endif /* !ACE_HAS_WINCE */
 }
 
+ACE_INLINE HANDLE ACE_Process_Options::get_user_token (void) const
+{
+  return user_token_;
+}
+
+ACE_INLINE void ACE_Process_Options::set_user_token (HANDLE token, bool close_token)
+{
+  if (user_token_ != ACE_INVALID_HANDLE && close_user_token_)
+    {
+      ::CloseHandle(user_token_);
+    }
+
+  user_token_ = token;
+  close_user_token_ = close_token;
+}
+
 #else /* !defined (ACE_WIN32) */
 
 ACE_INLINE ACE_HANDLE
