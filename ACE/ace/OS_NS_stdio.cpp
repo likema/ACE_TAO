@@ -445,27 +445,45 @@ ACE_OS::sprintf (wchar_t *buf, const wchar_t *format, ...)
 int
 ACE_OS::vasprintf_emulation(char **bufp, const char *format, va_list argptr)
 {
-  va_list ap;
-  va_copy (ap, argptr);
-  int size = ACE_OS::vsnprintf (0, 0, format, ap);
-  va_end (ap);
+  char* buf = 0;
+  int size = 0, len = 0;
 
-  if (size != -1)
+  do {
+    va_list ap;
+    va_copy (ap, argptr);
+    len = ACE_OS::vsnprintf (buf, size, format, ap);
+    va_end (ap);
+
+    if (len < size)
+      break;
+
+    // ACE_OS::vsnprintf() may returns size + 1 when size too small,
+    // depending on the system implementation, e.g. HP-UX and Windows 2000.
+    if (len == size + 1)
+      len <<= 1;
+
+    if (char* p = (char*) ACE_OS::realloc (buf, (len + 1)))
+      {
+        buf = p;
+        size = len + 1;
+      }
+    else
+      {
+        len = -1;
+        break;
+      }
+  } while (1);
+
+  if (len <= 0)
     {
-      char *buf = reinterpret_cast<char*>(ACE_OS::malloc(size + 1));
-      if (!buf)
-        return -1;
-
-      va_list aq;
-      va_copy (aq, argptr);
-      size = ACE_OS::vsnprintf(buf, size + 1, format, aq);
-      va_end (aq);
-
-      if (size != -1)
-        *bufp = buf;
+      ACE_OS::free (buf);
+    }
+  else
+    {
+      *bufp = buf;
     }
 
-  return size;
+  return len;
 }
 #endif
 
@@ -474,28 +492,45 @@ ACE_OS::vasprintf_emulation(char **bufp, const char *format, va_list argptr)
 int
 ACE_OS::vaswprintf_emulation(wchar_t **bufp, const wchar_t *format, va_list argptr)
 {
-  va_list ap;
-  va_copy (ap, argptr);
-  int size = ACE_OS::vsnprintf(0, 0, format, ap);
-  va_end (ap);
+  wchar_t* buf = 0;
+  int size = 0, len = 0;
 
-  if (size != -1)
+  do {
+    va_list ap;
+    va_copy (ap, argptr);
+    len = ACE_OS::vsnprintf (buf, size, format, ap);
+    va_end (ap);
+
+    if (len < size)
+      break;
+
+    // ACE_OS::vsnprintf() may returns size + 1 when size too small,
+    // depending on the system implementation, e.g. HP-UX and Windows 2000.
+    if (len == size + 1)
+      len <<= 1;
+
+    if (wchar_t* p = (wchar_t*) ACE_OS::realloc (buf, (len + 1)))
+      {
+        buf = p;
+        size = len + 1;
+      }
+    else
+      {
+        len = -1;
+        break;
+      }
+  } while (1);
+
+  if (len <= 0)
     {
-      wchar_t *buf = reinterpret_cast<wchar_t*>
-        (ACE_OS::malloc((size + 1) * sizeof(wchar_t)));
-      if (!buf)
-        return -1;
-
-      va_list aq;
-      va_copy (aq, argptr);
-      size = ACE_OS::vsnprintf(buf, size + 1, format, aq);
-      va_end (aq);
-
-      if (size != -1)
-        *bufp = buf;
+      ACE_OS::free (buf);
+    }
+  else
+    {
+      *bufp = buf;
     }
 
-  return size;
+  return len;
 }
 #endif /* ACE_HAS_WCHAR */
 #endif /* !ACE_HAS_VASPRINTF */
