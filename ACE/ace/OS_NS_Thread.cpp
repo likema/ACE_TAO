@@ -607,6 +607,7 @@ public:
   ACE_TSS_Cleanup * operator ->();
 
 private:
+  void init_i (Purpose purpose);
 
   ACE_TSS_Cleanup * operator *();
 
@@ -634,14 +635,25 @@ TSS_Cleanup_Instance::TSS_Cleanup_Instance (Purpose purpose)
   // there can be only one thread in this constructor at any one time, so
   // it's safe to check for a zero mutex_.  If it's zero, we create a new
   // mutex and condition variable.
-  if (mutex_ == 0)
+  if (purpose != USE && mutex_ == 0)
     {
       ACE_NEW (mutex_, ACE_Thread_Mutex ());
       ACE_NEW (condition_, ACE_Condition_Thread_Mutex (*mutex_));
     }
 
-  ACE_GUARD (ACE_Thread_Mutex, m, *mutex_);
+  if (mutex_)
+    {
+      ACE_GUARD (ACE_Thread_Mutex, m, *mutex_);
+      init_i (purpose);
+    }
+  else
+    {
+      init_i (purpose);
+    }
+}
 
+void TSS_Cleanup_Instance::init_i (Purpose purpose)
+{
   if (purpose == CREATE)
   {
     if (instance_ == 0)
@@ -682,27 +694,28 @@ TSS_Cleanup_Instance::~TSS_Cleanup_Instance (void)
   ACE_Thread_Mutex *del_mutex = 0;
 
   // scope the guard
-  {
-    ACE_GUARD (ACE_Thread_Mutex, guard, *mutex_);
-    if (ptr_ != 0)
-      {
-        if (ACE_BIT_ENABLED (flags_, FLAG_DELETING))
-          {
-            ACE_ASSERT(instance_ == 0);
-            ACE_ASSERT(reference_count_ == 0);
-            delete ptr_;
-            del_mutex = mutex_ ;
-            mutex_ = 0;
-          }
-        else
-          {
-            ACE_ASSERT (reference_count_ > 0);
-            --reference_count_;
-            if (reference_count_ == 0 && instance_ == 0)
-              condition_->signal ();
-          }
-      }
-  }// end of guard scope
+  if (mutex_)
+    {
+      ACE_GUARD (ACE_Thread_Mutex, guard, *mutex_);
+      if (ptr_ != 0)
+        {
+          if (ACE_BIT_ENABLED (flags_, FLAG_DELETING))
+            {
+              ACE_ASSERT(instance_ == 0);
+              ACE_ASSERT(reference_count_ == 0);
+              delete ptr_;
+              del_mutex = mutex_ ;
+              mutex_ = 0;
+            }
+          else
+            {
+              ACE_ASSERT (reference_count_ > 0);
+              --reference_count_;
+              if (reference_count_ == 0 && instance_ == 0)
+                condition_->signal ();
+            }
+        }
+    }// end of guard scope
 
   if (del_mutex != 0)
     {
