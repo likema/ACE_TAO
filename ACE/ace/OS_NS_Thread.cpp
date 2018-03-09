@@ -753,6 +753,10 @@ ACE_Condition_Thread_Mutex* TSS_Cleanup_Instance::condition_ = 0;
 
 ACE_TSS_Cleanup::~ACE_TSS_Cleanup (void)
 {
+  if (in_use_ != ACE_OS::NULL_key)
+    {
+      ACE_OS::thr_keyfree_native (in_use_);
+    }
 }
 
 void
