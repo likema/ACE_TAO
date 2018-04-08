@@ -187,6 +187,9 @@ ACE_OS::strenvdup (const ACE_TCHAR *str)
             }
           else
             {
+              if (!strenvdup_resize (buf, size, cur, off + 2))
+                return 0;
+
               ACE_OS::strncpy (cur, q - 1, off + 1);
               cur += off + 1;
             }
