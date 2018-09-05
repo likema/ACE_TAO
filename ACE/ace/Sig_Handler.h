@@ -144,6 +144,7 @@ private:
   /// Array used to store one user-defined Event_Handler for every
   /// signal.
   static ACE_Event_Handler *signal_handlers_[ACE_NSIG];
+  static ACE_Atomic_Op<ACE_Thread_Mutex, long> refcount_;
 };
 
 /**
