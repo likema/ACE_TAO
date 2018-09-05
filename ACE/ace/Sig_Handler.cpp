@@ -43,6 +43,7 @@ ACE_BEGIN_VERSIONED_NAMESPACE_DECL
 
 // Array of Event_Handlers that will handle the signals.
 ACE_Event_Handler *ACE_Sig_Handler::signal_handlers_[ACE_NSIG];
+ACE_Atomic_Op<ACE_Thread_Mutex, long> ACE_Sig_Handler::refcount_;
 
 // Remembers if a signal has occurred.
 sig_atomic_t ACE_Sig_Handler::sig_pending_ = 0;
@@ -52,9 +53,12 @@ ACE_ALLOC_HOOK_DEFINE(ACE_Sig_Handler)
 
 ACE_Sig_Handler::~ACE_Sig_Handler (void)
 {
-  for (int s = 1; s < ACE_NSIG; ++s)
-    if (ACE_Sig_Handler::signal_handlers_[s])
-      ACE_Sig_Handler::remove_handler_i (s);
+  if (!--refcount_)
+    {
+      for (int s = 1; s < ACE_NSIG; ++s)
+        if (ACE_Sig_Handler::signal_handlers_[s])
+          ACE_Sig_Handler::remove_handler_i (s);
+    }
 }
 
 void
