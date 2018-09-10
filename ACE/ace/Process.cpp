@@ -53,6 +53,8 @@ ACE_Process::ACE_Process (void)
   ACE_OS::memset ((void *) &this->process_info_,
                   0,
                   sizeof this->process_info_);
+  this->process_info_.hThread = ACE_INVALID_HANDLE;
+  this->process_info_.hProcess = ACE_INVALID_HANDLE;
 #endif /* ACE_WIN32 */
 }
 
