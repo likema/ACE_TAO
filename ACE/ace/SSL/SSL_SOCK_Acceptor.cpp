@@ -194,7 +194,6 @@ ACE_SSL_SOCK_Acceptor::accept (ACE_SSL_SOCK_Stream &new_stream,
   if (this->ssl_accept (new_stream, timeout) == -1)
     {
       new_stream.close ();
-      new_stream.set_handle (ACE_INVALID_HANDLE);
       return -1;
     }
 
@@ -233,7 +232,6 @@ ACE_SSL_SOCK_Acceptor::accept (ACE_SSL_SOCK_Stream &new_stream,
   if (this->ssl_accept (new_stream, timeout) == -1)
     {
       new_stream.close ();
-      new_stream.set_handle (ACE_INVALID_HANDLE);
       return -1;
     }
 

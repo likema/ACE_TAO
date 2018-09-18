@@ -340,6 +340,7 @@ ACE_SSL_SOCK_Stream::close (void)
       ACE_SSL_Context::report_error ();
 
       ACE_Errno_Guard error (errno);   // Save/restore errno
+      this->set_handle (ACE_INVALID_HANDLE);
       (void) this->stream_.close ();
 
       return -1;
