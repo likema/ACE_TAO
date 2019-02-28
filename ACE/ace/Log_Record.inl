@@ -13,7 +13,7 @@ ACE_BEGIN_VERSIONED_NAMESPACE_DECL
 ACE_INLINE
 ACE_Log_Record::~ACE_Log_Record (void)
 {
-  if (this->msg_data_)
+  if (this->msg_data_ && this->msg_data_ != this->msg_buf_)
 #if defined (ACE_HAS_ALLOC_HOOKS)
     ACE_Allocator::instance()->free(this->msg_data_);
 #else

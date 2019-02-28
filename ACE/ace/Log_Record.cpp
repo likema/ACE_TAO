@@ -135,10 +135,14 @@ ACE_Log_Record::msg_data (const ACE_TCHAR *data)
     {
       this->msg_data_size_ = 0;
 #if defined (ACE_HAS_ALLOC_HOOKS)
-      ACE_Allocator::instance()->free(this->msg_data_);
+      if (this->msg_data_ && this->msg_data_ != this->msg_buf_)
+        ACE_Allocator::instance ()->free (this->msg_data_);
+
       ACE_ALLOCATOR_RETURN (this->msg_data_, static_cast<ACE_TCHAR*>(ACE_Allocator::instance()->malloc(sizeof(ACE_TCHAR) * newlen)), -1);
 #else
-      delete [] this->msg_data_;
+      if (this->msg_data_ && this->msg_data_ != this->msg_buf_)
+        delete [] this->msg_data_;
+
       ACE_NEW_RETURN (this->msg_data_, ACE_TCHAR[newlen], -1);
 #endif /* ACE_HAS_ALLOC_HOOKS */
       this->msg_data_size_ = newlen;
@@ -156,21 +160,12 @@ ACE_Log_Record::ACE_Log_Record (ACE_Log_Priority lp,
     secs_ (ts_sec),
     usecs_ (0),
     pid_ (ACE_UINT32 (p)),
-    msg_data_ (0),
-    msg_data_size_ (0),
+    msg_data_ (msg_buf_),
+    msg_data_size_ (MAXLOGMSGLEN),
     category_(0)
 {
   // ACE_TRACE ("ACE_Log_Record::ACE_Log_Record");
-#if defined (ACE_HAS_ALLOC_HOOKS)
-  ACE_ALLOCATOR_NORETURN (this->msg_data_, static_cast<ACE_TCHAR*> (ACE_Allocator::instance()->malloc(sizeof(ACE_TCHAR) * MAXLOGMSGLEN)));
-#else
-  ACE_NEW_NORETURN (this->msg_data_, ACE_TCHAR[MAXLOGMSGLEN]);
-#endif /* ACE_HAS_ALLOC_HOOKS */
-  if (0 != this->msg_data_)
-    {
-      this->msg_data_size_ = MAXLOGMSGLEN;
-      this->msg_data_[0] = '\0';
-    }
+  this->msg_data_[0] = '\0';
 }
 
 ACE_Log_Record::ACE_Log_Record (ACE_Log_Priority lp,
@@ -181,21 +176,12 @@ ACE_Log_Record::ACE_Log_Record (ACE_Log_Priority lp,
     secs_ (ts.sec ()),
     usecs_ ((ACE_UINT32) ts.usec ()),
     pid_ (ACE_UINT32 (p)),
-    msg_data_ (0),
-    msg_data_size_ (0),
+    msg_data_ (msg_buf_),
+    msg_data_size_ (MAXLOGMSGLEN),
     category_(0)
 {
   // ACE_TRACE ("ACE_Log_Record::ACE_Log_Record");
-#if defined (ACE_HAS_ALLOC_HOOKS)
-  ACE_ALLOCATOR_NORETURN (this->msg_data_, static_cast<ACE_TCHAR*> (ACE_Allocator::instance()->malloc(sizeof(ACE_TCHAR) * MAXLOGMSGLEN)));
-#else
-  ACE_NEW_NORETURN (this->msg_data_, ACE_TCHAR[MAXLOGMSGLEN]);
-#endif /* ACE_HAS_ALLOC_HOOKS */
-  if (0 != this->msg_data_)
-    {
-      this->msg_data_size_ = MAXLOGMSGLEN;
-      this->msg_data_[0] = '\0';
-    }
+  this->msg_data_[0] = '\0';
 }
 
 void
@@ -217,21 +203,12 @@ ACE_Log_Record::ACE_Log_Record (void)
     secs_ (0),
     usecs_ (0),
     pid_ (0),
-    msg_data_ (0),
-    msg_data_size_ (0),
+    msg_data_ (msg_buf_),
+	msg_data_size_ (MAXLOGMSGLEN),
     category_(0)
 {
   // ACE_TRACE ("ACE_Log_Record::ACE_Log_Record");
-#if defined (ACE_HAS_ALLOC_HOOKS)
-  ACE_ALLOCATOR_NORETURN (this->msg_data_, static_cast<ACE_TCHAR*> (ACE_Allocator::instance()->malloc(sizeof(ACE_TCHAR) * MAXLOGMSGLEN)));
-#else
-  ACE_NEW_NORETURN (this->msg_data_, ACE_TCHAR[MAXLOGMSGLEN]);
-#endif /* ACE_HAS_ALLOC_HOOKS */
-  if (0 != this->msg_data_)
-    {
-      this->msg_data_size_ = MAXLOGMSGLEN;
-      this->msg_data_[0] = '\0';
-    }
+  this->msg_data_[0] = '\0';
 }
 
 int

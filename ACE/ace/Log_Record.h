@@ -196,6 +196,8 @@ private:
   /// Allocated size of msg_data_ in ACE_TCHARs
   size_t msg_data_size_;
 
+  ACE_TCHAR msg_buf_[MAXLOGMSGLEN];
+
   ///
   ACE_Log_Category_TSS* category_;
 
