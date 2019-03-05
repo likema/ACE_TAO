@@ -76,35 +76,35 @@ ACE_Stack_Trace::generate_trace (ssize_t starting_frame_offset, size_t num_frame
   const size_t MAX_FRAMES = 128;
   const ssize_t INITIAL_FRAME = 3;
 
-  void* stack[MAX_FRAMES];
-  size_t stack_size = 0;
-  char** stack_syms;
-
   if (num_frames == 0)
     num_frames = MAX_FRAMES;
 
-  size_t starting_frame =
-    determine_starting_frame (INITIAL_FRAME, starting_frame_offset);
-
-  stack_size = ::backtrace (&stack[0], sizeof(stack)/sizeof(stack[0]));
+  void* stack[MAX_FRAMES];
+  size_t stack_size = ::backtrace (stack, sizeof(stack) / sizeof(stack[0]));
   if (stack_size != 0)
     {
-      stack_syms = ::backtrace_symbols (stack, stack_size);
+      char** stack_syms = ::backtrace_symbols (stack, stack_size);
 
-      for (size_t i = starting_frame;
-           i < stack_size && num_frames > 0 && this->buflen_ < SYMBUFSIZ - 1;
-           i++, num_frames--)
+      char* p = this->buf_;
+      size_t remain = SYMBUFSIZ;
+
+      stack_size = ACE_MIN (stack_size, num_frames);
+      for (size_t i = determine_starting_frame (INITIAL_FRAME,
+                                                starting_frame_offset);
+            i < stack_size && remain > 1; i++)
         {
-          // this could be more efficient by remembering where we left off in buf_
-          char *symp = &stack_syms[i][0];
-          while (this->buflen_ < SYMBUFSIZ - 2 && *symp != '\0')
-            {
-              this->buf_[this->buflen_++] = *symp++;
-            }
-          this->buf_[this->buflen_++] = '\n'; // put a newline at the end
-        }
-      this->buf_[this->buflen_] = '\0'; // zero terminate the string
+          const char *symp = stack_syms[i];
+          size_t n = ACE_MIN (remain - 2, ACE_OS::strlen (symp));
+          if (n)
+            ACE_OS::strncpy (p, symp, n);
 
+          p[n++] = '\n';
+          p += n;
+          remain -= n;
+        }
+
+      *p = '\0'; // zero terminate the string
+      this->buflen_ = p - this->buf_;
       ::free (stack_syms);
     }
   else
